@@ -10,7 +10,13 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.VineBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import org.bukkit.craftbukkit.v.event.CraftEventFactory;
+import io.izzel.arclight.common.mod.util.DistValidate;
+import org.bukkit.Bukkit;
+import org.bukkit.craftbukkit.v.block.CraftBlock;
+import org.bukkit.craftbukkit.v.block.CraftBlockState;
+import org.bukkit.craftbukkit.v.block.CraftBlockStates;
+import org.bukkit.event.block.BlockGrowEvent;
+import org.bukkit.event.block.BlockSpreadEvent;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -54,28 +60,49 @@ public abstract class VineBlockMixin extends BlockMixin {
                         BlockPos blockpos2 = blockpos4.relative(direction3);
                         BlockPos blockpos3 = blockpos4.relative(direction4);
                         if (flag && isAcceptableNeighbour(worldIn, blockpos2, direction3)) {
-                            CraftEventFactory.handleBlockSpreadEvent(worldIn, pos, blockpos4, this.defaultBlockState().setValue(getPropertyForFace(direction3), Boolean.TRUE), 2);
+                            BlockState newState = this.defaultBlockState().setValue(getPropertyForFace(direction3), Boolean.TRUE);
+                            if (this.arclight$blockSpread(worldIn, pos, blockpos4, newState, 2)) {
+                                worldIn.setBlock(blockpos4, newState, 2);
+                            }
                         } else if (flag1 && isAcceptableNeighbour(worldIn, blockpos3, direction4)) {
-                            CraftEventFactory.handleBlockSpreadEvent(worldIn, pos, blockpos4, this.defaultBlockState().setValue(getPropertyForFace(direction4), Boolean.TRUE), 2);
+                            BlockState newState = this.defaultBlockState().setValue(getPropertyForFace(direction4), Boolean.TRUE);
+                            if (this.arclight$blockSpread(worldIn, pos, blockpos4, newState, 2)) {
+                                worldIn.setBlock(blockpos4, newState, 2);
+                            }
                         } else {
                             Direction direction1 = direction.getOpposite();
                             if (flag && worldIn.isEmptyBlock(blockpos2) && isAcceptableNeighbour(worldIn, pos.relative(direction3), direction1)) {
-                                CraftEventFactory.handleBlockSpreadEvent(worldIn, pos, blockpos2, this.defaultBlockState().setValue(getPropertyForFace(direction1), Boolean.TRUE), 2);
+                                BlockState newState = this.defaultBlockState().setValue(getPropertyForFace(direction1), Boolean.TRUE);
+                                if (this.arclight$blockSpread(worldIn, pos, blockpos2, newState, 2)) {
+                                    worldIn.setBlock(blockpos2, newState, 2);
+                                }
                             } else if (flag1 && worldIn.isEmptyBlock(blockpos3) && isAcceptableNeighbour(worldIn, pos.relative(direction4), direction1)) {
-                                CraftEventFactory.handleBlockSpreadEvent(worldIn, pos, blockpos3, this.defaultBlockState().setValue(getPropertyForFace(direction1), Boolean.TRUE), 2);
+                                BlockState newState = this.defaultBlockState().setValue(getPropertyForFace(direction1), Boolean.TRUE);
+                                if (this.arclight$blockSpread(worldIn, pos, blockpos3, newState, 2)) {
+                                    worldIn.setBlock(blockpos3, newState, 2);
+                                }
                             } else if ((double) worldIn.random.nextFloat() < 0.05D && isAcceptableNeighbour(worldIn, blockpos4.above(), Direction.UP)) {
-                                CraftEventFactory.handleBlockSpreadEvent(worldIn, pos, blockpos4, this.defaultBlockState().setValue(UP, Boolean.TRUE), 2);
+                                BlockState newState = this.defaultBlockState().setValue(UP, Boolean.TRUE);
+                                if (this.arclight$blockSpread(worldIn, pos, blockpos4, newState, 2)) {
+                                    worldIn.setBlock(blockpos4, newState, 2);
+                                }
                             }
                         }
                     } else if (isAcceptableNeighbour(worldIn, blockpos4, direction)) {
-                        CraftEventFactory.handleBlockGrowEvent(worldIn, pos, state.setValue(getPropertyForFace(direction), Boolean.TRUE), 2);
+                        BlockState newState = state.setValue(getPropertyForFace(direction), Boolean.TRUE);
+                        if (this.arclight$blockGrow(worldIn, pos, newState, 2)) {
+                            worldIn.setBlock(pos, newState, 2);
+                        }
                     }
 
                 }
             } else {
                 if (direction == Direction.UP && pos.getY() < worldIn.getMaxBuildHeight() - 1) {
                     if (this.canSupportAtFace(worldIn, pos, direction)) {
-                        CraftEventFactory.handleBlockGrowEvent(worldIn, pos, state.setValue(UP, Boolean.TRUE), 2);
+                        BlockState newState = state.setValue(UP, Boolean.TRUE);
+                        if (this.arclight$blockGrow(worldIn, pos, newState, 2)) {
+                            worldIn.setBlock(pos, newState, 2);
+                        }
                         return;
                     }
 
@@ -93,7 +120,9 @@ public abstract class VineBlockMixin extends BlockMixin {
                         }
 
                         if (this.hasHorizontalConnection(blockstate3)) {
-                            CraftEventFactory.handleBlockSpreadEvent(worldIn, pos, blockpos, blockstate3, 2);
+                            if (this.arclight$blockSpread(worldIn, pos, blockpos, blockstate3, 2)) {
+                                worldIn.setBlock(blockpos, blockstate3, 2);
+                            }
                         }
 
                         return;
@@ -108,11 +137,44 @@ public abstract class VineBlockMixin extends BlockMixin {
                         BlockState blockstate1 = isAir ? this.defaultBlockState() : blockstate;
                         BlockState blockstate2 = this.copyRandomFaces(state, blockstate1, random);
                         if (blockstate1 != blockstate2 && this.hasHorizontalConnection(blockstate2)) {
-                            CraftEventFactory.handleBlockSpreadEvent(worldIn, pos, blockpos1, blockstate2, 2);
+                            if (this.arclight$blockSpread(worldIn, pos, blockpos1, blockstate2, 2)) {
+                                worldIn.setBlock(blockpos1, blockstate2, 2);
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    private boolean arclight$blockSpread(ServerLevel world, BlockPos source, BlockPos target, BlockState block, int flag) {
+        // Suppress during worldgen
+        if (!DistValidate.isValid(world)) {
+            return true;
+        }
+
+        CraftBlockState state = CraftBlockStates.getBlockState(world, target, flag);
+        state.setData(block);
+
+        BlockSpreadEvent event = new BlockSpreadEvent(state.getBlock(), CraftBlock.at(world, source), state);
+        Bukkit.getPluginManager().callEvent(event);
+
+        return !event.isCancelled();
+    }
+
+    private boolean arclight$blockGrow(ServerLevel world, BlockPos pos, BlockState newData, int flag) {
+        // Suppress during worldgen
+        if (!DistValidate.isValid(world)) {
+            return true;
+        }
+
+        org.bukkit.block.Block block = ((io.izzel.arclight.common.bridge.core.world.WorldBridge) world).bridge$getWorld().getBlockAt(pos.getX(), pos.getY(), pos.getZ());
+        CraftBlockState state = (CraftBlockState) block.getState();
+        state.setData(newData);
+
+        BlockGrowEvent event = new BlockGrowEvent(block, state);
+        Bukkit.getPluginManager().callEvent(event);
+
+        return !event.isCancelled();
     }
 }
