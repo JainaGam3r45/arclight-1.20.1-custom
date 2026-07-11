@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -38,6 +39,7 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
     @Shadow @Final private EntityPersistentStorage<T> permanentStorage;
     @Shadow @Final EntitySectionStorage<T> sectionStorage;
     @Shadow @Final private Long2ObjectMap<PersistentEntitySectionManager.ChunkLoadStatus> chunkLoadStatuses;
+    @Shadow @Final private Set<UUID> knownUuids;
     @Shadow @Final private static org.slf4j.Logger LOGGER;
     // @formatter:on
 
@@ -69,14 +71,20 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
         this.arclight$processingPendingLoads = true;
     }
 
-    @Redirect(method = "m_157557_", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;warn(Ljava/lang/String;Ljava/lang/Object;)V"), remap = false)
-    private void arclight$recordDuplicateUuid(org.slf4j.Logger logger, String message, Object entity) {
-        if (this.arclight$processingPendingLoads && entity instanceof EntityAccess entityAccess) {
-            this.arclight$duplicateEntityChunks.add(ChunkPos.asLong(entityAccess.blockPosition()));
-            this.arclight$discardedDuplicateEntities++;
+    @Inject(method = "m_157557_", at = @At("HEAD"), cancellable = true, remap = false)
+    private void arclight$regenerateDuplicateUuid(T entity, CallbackInfoReturnable<Boolean> cir) {
+        if (!this.arclight$processingPendingLoads || !(entity instanceof Entity minecraftEntity) || !this.knownUuids.contains(entity.getUUID())) {
             return;
         }
-        logger.warn(message, entity);
+        UUID uuid;
+        do {
+            uuid = UUID.randomUUID();
+        } while (this.knownUuids.contains(uuid));
+        minecraftEntity.setUUID(uuid);
+        this.knownUuids.add(uuid);
+        this.arclight$duplicateEntityChunks.add(ChunkPos.asLong(entity.blockPosition()));
+        this.arclight$discardedDuplicateEntities++;
+        cir.setReturnValue(true);
     }
 
     @Inject(method = "processPendingLoads", at = @At("TAIL"))
@@ -111,7 +119,7 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
         if (!force && now - this.arclight$lastDuplicateUuidReport < ARCLIGHT_DUPLICATE_UUID_REPORT_INTERVAL_MS) {
             return;
         }
-        LOGGER.warn("Discarded {} duplicate entity UUIDs while loading chunks; affected chunks were saved without the duplicate entities", this.arclight$discardedDuplicateEntities);
+        LOGGER.info("Regenerated {} duplicate entity UUIDs while loading chunks", this.arclight$discardedDuplicateEntities);
         this.arclight$discardedDuplicateEntities = 0;
         this.arclight$lastDuplicateUuidReport = now;
     }

@@ -336,6 +336,15 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
         disconnect(str);
     }
 
+    @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;warn(Ljava/lang/String;Ljava/lang/Object;)V"), require = 2)
+    private void arclight$hideFloatingKickWarning(Logger logger, String message, Object player) {
+        if (message.equals("{} was kicked for floating too long!") || message.equals("{} was kicked for floating a vehicle too long!")) {
+            logger.debug(message, player);
+        } else {
+            logger.warn(message, player);
+        }
+    }
+
     /**
      * @author IzzelAliz
      * @reason
@@ -384,7 +393,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                 }
                 speed *= 2.0;
                 if (d11 - d10 > Math.max(100.0, Math.pow(10.0f * i * speed, 2.0)) && !this.isSingleplayerOwner()) {
-                    LOGGER.warn("{} (vehicle of {}) moved too quickly! {},{},{}", entity.getName().getString(), this.player.getName().getString(), d7, d8, d9);
+                    LOGGER.debug("{} (vehicle of {}) moved too quickly! {},{},{}", entity.getName().getString(), this.player.getName().getString(), d7, d8, d9);
                     this.connection.send(new ClientboundMoveVehiclePacket(entity));
                     return;
                 }
@@ -412,7 +421,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                 boolean flag2 = false;
                 if (d11 > SpigotConfig.movedWronglyThreshold) {
                     flag2 = true;
-                    LOGGER.warn("{} (vehicle of {}) moved wrongly! {}", entity.getName().getString(), this.player.getName().getString(), Math.sqrt(d11));
+                    LOGGER.debug("{} (vehicle of {}) moved wrongly! {}", entity.getName().getString(), this.player.getName().getString(), Math.sqrt(d11));
                 }
                 Location curPos = this.getCraftPlayer().getLocation();
                 entity.absMoveTo(d4, d5, d6, f, f2);
@@ -641,7 +650,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
 
                                 if (d11 - d10 > Math.max(f2, Math.pow((double) (org.spigotmc.SpigotConfig.movedTooQuicklyMultiplier * (float) i * speed), 2)) && !this.isSingleplayerOwner()) {
                                     // CraftBukkit end
-                                    LOGGER.warn("{} moved too quickly! {},{},{}", this.player.getName().getString(), d7, d8, d9);
+                                    LOGGER.debug("{} moved too quickly! {},{},{}", this.player.getName().getString(), d7, d8, d9);
                                     this.teleport(this.player.getX(), this.player.getY(), this.player.getZ(), this.player.getYRot(), this.player.getXRot());
                                     return;
                                 }
@@ -674,7 +683,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
 
                             if (!this.player.isChangingDimension() && d11 > org.spigotmc.SpigotConfig.movedWronglyThreshold && !this.player.isSleeping() && !this.player.gameMode.isCreative() && this.player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR) { // Spigot
                                 flag1 = true;
-                                LOGGER.warn("{} moved wrongly!", this.player.getName().getString());
+                                LOGGER.debug("{} moved wrongly!", this.player.getName().getString());
                             }
 
                             if (!this.player.noPhysics && !this.player.isSleeping() && (flag1 && worldserver.noCollision(this.player, axisalignedbb) || this.isPlayerCollidingWithAnythingNew(worldserver, axisalignedbb, d0, d1, d2))) {
