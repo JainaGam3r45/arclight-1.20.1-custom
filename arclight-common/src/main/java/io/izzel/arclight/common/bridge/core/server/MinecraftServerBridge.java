@@ -23,5 +23,7 @@ public interface MinecraftServerBridge {
 
     boolean bridge$hasStopped();
 
+    double bridge$getRecentTps();
+
     Commands bridge$getVanillaCommands();
 }

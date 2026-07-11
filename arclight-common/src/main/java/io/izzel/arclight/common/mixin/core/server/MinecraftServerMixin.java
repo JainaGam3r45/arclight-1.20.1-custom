@@ -7,6 +7,7 @@ import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
 import io.izzel.arclight.common.bridge.core.world.WorldBridge;
 import io.izzel.arclight.common.mod.ArclightConstants;
 import io.izzel.arclight.common.mod.server.BukkitRegistry;
+import io.izzel.arclight.common.mod.server.PerformanceBarManager;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
 import io.izzel.arclight.common.mod.util.BukkitOptionParser;
 import it.unimi.dsi.fastutil.longs.LongIterator;
@@ -184,6 +185,11 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         return this.hasStopped();
     }
 
+    @Override
+    public double bridge$getRecentTps() {
+        return this.recentTps[0];
+    }
+
     @Inject(method = "<init>", at = @At("RETURN"))
     public void arclight$loadOptions(Thread p_236723_, LevelStorageSource.LevelStorageAccess p_236724_, PackRepository p_236725_, WorldStem worldStem, Proxy p_236727_, DataFixer p_236728_, Services p_236729_, ChunkProgressListenerFactory p_236730_, CallbackInfo ci) {
         String[] arguments = ManagementFactory.getRuntimeMXBean().getInputArguments().toArray(new String[0]);
@@ -247,6 +253,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 this.startMetricsRecordingTick();
                 this.profiler.push("tick");
                 this.tickServer(this::haveTime);
+                PerformanceBarManager.tick((MinecraftServer) (Object) this);
                 this.profiler.popPush("nextTickWait");
                 this.mayHaveDelayedTasks = true;
                 this.delayedTasksMaxNextTickTime = Math.max(Util.getMillis() + 50L, this.nextTickTime);
@@ -273,6 +280,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             this.onServerCrash(crashreport);
         } finally {
             try {
+                PerformanceBarManager.clear();
                 this.stopped = true;
                 this.stopServer();
             } catch (Throwable throwable) {

@@ -6,6 +6,7 @@ import com.google.common.collect.Lists;
 import io.izzel.arclight.common.bridge.bukkit.CraftServerBridge;
 import io.izzel.arclight.common.bridge.core.world.WorldBridge;
 import io.izzel.arclight.common.mod.server.ArclightServer;
+import io.izzel.arclight.common.mod.server.PerformanceBarManager;
 import io.izzel.arclight.common.bridge.core.entity.player.ServerPlayerEntityBridge;
 import jline.console.ConsoleReader;
 import net.minecraft.commands.CommandSourceStack;
@@ -167,6 +168,7 @@ public abstract class CraftServerMixin implements CraftServerBridge {
         ++this.reloadCount;
         this.configuration = YamlConfiguration.loadConfiguration(this.getConfigFile());
         this.commandsConfiguration = YamlConfiguration.loadConfiguration(this.getCommandsConfigFile());
+        PerformanceBarManager.reloadConfiguration();
 
         try {
             this.playerList.getIpBans().load();

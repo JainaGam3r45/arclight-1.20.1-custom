@@ -11,6 +11,7 @@ import io.izzel.arclight.common.bridge.core.network.play.ServerPlayNetHandlerBri
 import io.izzel.arclight.common.bridge.core.server.management.PlayerListBridge;
 import io.izzel.arclight.common.bridge.core.world.WorldBridge;
 import io.izzel.arclight.common.mod.server.ArclightServer;
+import io.izzel.arclight.common.mod.server.PerformanceBarManager;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
 import io.izzel.arclight.mixin.Eject;
 import net.minecraft.core.BlockPos;
@@ -192,6 +193,7 @@ public abstract class PlayerListMixin implements PlayerListBridge {
 
     @Inject(method = "remove", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/players/PlayerList;save(Lnet/minecraft/server/level/ServerPlayer;)V"))
     private void arclight$playerQuitPre(ServerPlayer playerIn, CallbackInfo ci) {
+        PerformanceBarManager.remove(playerIn.getUUID());
         if (playerIn.inventoryMenu != playerIn.containerMenu) {
             ((ServerPlayerEntityBridge) playerIn).bridge$getBukkitEntity().closeInventory();
         }

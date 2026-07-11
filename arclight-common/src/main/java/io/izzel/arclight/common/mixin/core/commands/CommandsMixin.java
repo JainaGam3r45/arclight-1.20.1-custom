@@ -9,6 +9,7 @@ import io.izzel.arclight.common.bridge.core.entity.player.ServerPlayerEntityBrid
 import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
 import io.izzel.arclight.common.mod.compat.CommandNodeHooks;
 import io.izzel.arclight.common.mod.util.BukkitDispatcher;
+import io.izzel.arclight.common.mod.server.PerformanceBarManager;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -43,6 +44,7 @@ public abstract class CommandsMixin {
     public void arclight$constructor() {
         this.dispatcher = new BukkitDispatcher((Commands) (Object) this);
         this.dispatcher.setConsumer((context, b, i) -> context.getSource().onCommandComplete(context, b, i));
+        PerformanceBarManager.register(this.dispatcher);
     }
 
     public int performPrefixedCommand(CommandSourceStack commandSourceStack, String s, String label) {
