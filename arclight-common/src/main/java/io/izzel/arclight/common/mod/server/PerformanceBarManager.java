@@ -168,31 +168,39 @@ public final class PerformanceBarManager {
             double tps = Math.min(20.0, ((MinecraftServerBridge) server).bridge$getRecentTps());
             double mspt = server.getAverageTickTime();
             int ping = player.getPing();
+            boolean good;
+            boolean medium;
             BarColor color;
             switch (tpsSettings.fillMode) {
                 case TPS -> {
                     progress = tps / 20.0;
-                    color = tpsSettings.colorFor(tps >= 18.0, tps >= 15.0);
+                    good = tps >= 18.0;
+                    medium = tps >= 15.0;
                 }
                 case PING -> {
                     progress = 1.0 - Math.min(ping, 300) / 300.0;
-                    color = tpsSettings.colorFor(ping <= 100, ping <= 200);
+                    good = ping <= 100;
+                    medium = ping <= 200;
                 }
                 case MSPT -> {
                     progress = 1.0 - Math.min(mspt, 50.0) / 50.0;
-                    color = tpsSettings.colorFor(mspt <= 40.0, mspt <= 50.0);
+                    good = mspt <= 40.0;
+                    medium = mspt <= 50.0;
                 }
                 default -> throw new IllegalStateException("Unexpected TPS bar fill mode");
             }
-            title = format(tpsSettings.title, tps, mspt, ping, 0L, 0L, 0.0);
+            color = tpsSettings.colorFor(good, medium);
+            title = tpsSettings.colorize(format(tpsSettings.title, tps, mspt, ping, 0L, 0L, 0.0), good, medium);
             bar.setColor(color);
         } else {
             Runtime runtime = Runtime.getRuntime();
             long used = runtime.totalMemory() - runtime.freeMemory();
             long maximum = runtime.maxMemory();
             progress = maximum == 0 ? 0.0 : 1.0 - (double) used / maximum;
-            title = format(ramSettings.title, 0.0, 0.0, 0, used, maximum, (1.0 - progress) * 100.0);
-            bar.setColor(ramSettings.colorFor(progress >= 0.5, progress >= 0.25));
+            boolean good = progress >= 0.5;
+            boolean medium = progress >= 0.25;
+            title = ramSettings.colorize(format(ramSettings.title, 0.0, 0.0, 0, used, maximum, (1.0 - progress) * 100.0), good, medium);
+            bar.setColor(ramSettings.colorFor(good, medium));
         }
         double clamped = clamp(progress);
         bar.setTitle(title);
@@ -239,37 +247,56 @@ public final class PerformanceBarManager {
         PING
     }
 
-    private record BarSettings(String title, BarStyle style, FillMode fillMode, BarColor good, BarColor medium, BarColor low, int tickInterval) {
+    private record BarSettings(String title, BarStyle style, FillMode fillMode, BarColor good, BarColor medium, BarColor low, String goodText, String mediumText, String lowText, int tickInterval) {
 
         private static BarSettings tpsDefaults() {
-            return new BarSettings("&7TPS&6: &f<tps> &7MSPT&6: &f<mspt> &7Ping&6: &f<ping>ms", BarStyle.SEGMENTED_20, FillMode.MSPT, BarColor.GREEN, BarColor.YELLOW, BarColor.RED, 20);
+            return new BarSettings("TPS: <tps> MSPT: <mspt> Ping: <ping>ms", BarStyle.SEGMENTED_20, FillMode.MSPT, BarColor.GREEN, BarColor.YELLOW, BarColor.RED, "&a<text>", "&e<text>", "&c<text>", 20);
         }
 
         private static BarSettings ramDefaults() {
-            return new BarSettings("&7RAM&6: &f<used>/<xmx> &7(<percent>)", BarStyle.SEGMENTED_20, FillMode.MSPT, BarColor.GREEN, BarColor.YELLOW, BarColor.RED, 20);
+            return new BarSettings("RAM: <used>/<xmx> (<percent>)", BarStyle.SEGMENTED_20, FillMode.MSPT, BarColor.GREEN, BarColor.YELLOW, BarColor.RED, "&a<text>", "&e<text>", "&c<text>", 20);
         }
 
         private static BarSettings load(YamlConfiguration config, String path, BarSettings defaults) {
             setDefault(config, path + ".title", defaults.title);
+            String title = config.getString(path + ".title", defaults.title);
+            if (path.endsWith("tpsbar") && title.equals("&7TPS&6: &f<tps> &7MSPT&6: &f<mspt> &7Ping&6: &f<ping>ms")) {
+                title = defaults.title;
+                config.set(path + ".title", title);
+            } else if (path.endsWith("rambar") && title.equals("&7RAM&6: &f<used>/<xmx> &7(<percent>)")) {
+                title = defaults.title;
+                config.set(path + ".title", title);
+            }
             setDefault(config, path + ".overlay", purpurOverlay(defaults.style));
             setDefault(config, path + ".fill-mode", defaults.fillMode.name());
             setDefault(config, path + ".progress-color.good", defaults.good.name());
             setDefault(config, path + ".progress-color.medium", defaults.medium.name());
             setDefault(config, path + ".progress-color.low", defaults.low.name());
+            setDefault(config, path + ".text-color.good", defaults.goodText);
+            setDefault(config, path + ".text-color.medium", defaults.mediumText);
+            setDefault(config, path + ".text-color.low", defaults.lowText);
             setDefault(config, path + ".tick-interval", defaults.tickInterval);
             return new BarSettings(
-                ChatColor.translateAlternateColorCodes('&', config.getString(path + ".title", defaults.title)),
+                title,
                 overlay(config.getString(path + ".overlay"), defaults.style),
                 valueOf(FillMode.class, config.getString(path + ".fill-mode"), defaults.fillMode),
                 valueOf(BarColor.class, config.getString(path + ".progress-color.good"), defaults.good),
                 valueOf(BarColor.class, config.getString(path + ".progress-color.medium"), defaults.medium),
                 valueOf(BarColor.class, config.getString(path + ".progress-color.low"), defaults.low),
+                config.getString(path + ".text-color.good", defaults.goodText),
+                config.getString(path + ".text-color.medium", defaults.mediumText),
+                config.getString(path + ".text-color.low", defaults.lowText),
                 Math.max(1, config.getInt(path + ".tick-interval", defaults.tickInterval))
             );
         }
 
         private BarColor colorFor(boolean isGood, boolean isMedium) {
             return isGood ? good : isMedium ? medium : low;
+        }
+
+        private String colorize(String text, boolean isGood, boolean isMedium) {
+            String format = isGood ? goodText : isMedium ? mediumText : lowText;
+            return ChatColor.translateAlternateColorCodes('&', format.replace("<text>", text));
         }
 
         private static void setDefault(YamlConfiguration config, String path, Object value) {
