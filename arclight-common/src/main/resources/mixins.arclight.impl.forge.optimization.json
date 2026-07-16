@@ -10,6 +10,8 @@
     "EntityDataManagerMixin_Optimize",
     "EntityMixin_Optimize",
     "GoalMixin",
+    "HopperBlockEntityMixin_Optimize",
+    "LivingEntityMixin_Optimize",
     "MobMixin_Optimization",
     "VoxelShapesMixin",
     "activationrange.ActivationRangeMixin",

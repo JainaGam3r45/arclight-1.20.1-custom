@@ -2,6 +2,8 @@ package io.izzel.arclight.common.mixin.optimization.general.network;
 
 import io.izzel.arclight.common.bridge.core.entity.player.ServerPlayerEntityBridge;
 import io.izzel.arclight.common.bridge.core.world.server.ChunkMap_TrackedEntityBridge;
+import io.izzel.arclight.common.mod.compat.ModIds;
+import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
@@ -23,7 +25,9 @@ import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Set;
 
+// Krypton / Krypton Reforged overwrite ChunkMap.move; skipping avoids a hard mixin merge failure.
 @Mixin(ChunkMap.class)
+@LoadIfMod(modid = {ModIds.KRYPTON, ModIds.KRYPTON_REFORGED}, condition = LoadIfMod.ModCondition.ABSENT)
 public class ChunkMapMixin_Optimize {
 
     // @formatter:off

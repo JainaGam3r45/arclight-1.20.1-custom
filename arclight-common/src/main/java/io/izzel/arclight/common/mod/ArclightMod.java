@@ -1,10 +1,10 @@
 package io.izzel.arclight.common.mod;
 
+import io.izzel.arclight.common.mod.compat.ModIds;
 import io.izzel.arclight.common.mod.server.event.ArclightEventDispatcherRegistry;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import net.minecraftforge.fml.IExtensionPoint;
 import net.minecraftforge.fml.ModList;
-import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLLoader;
@@ -25,6 +25,10 @@ public class ArclightMod {
 
     public ArclightMod(FMLJavaModLoadingContext context) {
         LOGGER.info("mod-load");
+        // BCL injects into handleMovePlayer; Arclight must overwrite that method for Bukkit PlayerMoveEvent.
+        if (isModLoaded(ModIds.BETTER_CHUNK_LOADING)) {
+            LOGGER.info("mixin-load.betterchunkloading-move");
+        }
         System.setOut(new LoggingPrintStream("STDOUT", System.out, Level.INFO));
         System.setErr(new LoggingPrintStream("STDERR", System.err, Level.ERROR));
         ArclightEventDispatcherRegistry.registerAllEventDispatchers();

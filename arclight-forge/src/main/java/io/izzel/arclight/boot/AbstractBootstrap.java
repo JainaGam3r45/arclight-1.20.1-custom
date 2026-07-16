@@ -97,8 +97,11 @@ public class AbstractBootstrap {
             String version = attributes.getValue(Attributes.Name.IMPLEMENTATION_VERSION);
             extract(getClass().getModule().getResourceAsStream("/common.jar"), version);
             String buildTime = attributes.getValue("Implementation-Timestamp");
-            logger.info(ArclightLocale.getInstance().get("logo"),
-                ArclightLocale.getInstance().get("release-name." + ArclightVersion.current().getReleaseName()), version, buildTime);
+            String releaseName = ArclightVersion.current().getReleaseName();
+            String localizedRelease = ArclightLocale.getInstance()
+                .getOption("release-name." + releaseName)
+                .orElse(releaseName);
+            logger.info(ArclightLocale.getInstance().get("logo"), localizedRelease, version, buildTime);
         }
     }
 
@@ -109,11 +112,15 @@ public class AbstractBootstrap {
             Files.createDirectories(dir);
         }
         var mod = dir.resolve(version + ".jar");
-        if (!Files.exists(mod) || Boolean.getBoolean("arclight.alwaysExtract")) {
-            for (Path old : Files.list(dir).toList()) {
-                Files.delete(old);
+        byte[] bytes = path.readAllBytes();
+        boolean stale = Files.exists(mod) && Files.size(mod) != bytes.length;
+        if (!Files.exists(mod) || stale || Boolean.getBoolean("arclight.alwaysExtract")) {
+            try (var stream = Files.list(dir)) {
+                for (Path old : stream.toList()) {
+                    Files.delete(old);
+                }
             }
-            Files.copy(path, mod);
+            Files.write(mod, bytes);
         }
     }
 }

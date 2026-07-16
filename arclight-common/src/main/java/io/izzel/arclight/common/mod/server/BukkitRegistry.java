@@ -45,6 +45,8 @@ import net.minecraftforge.fml.CrashReportCallables;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.ForgeRegistry;
 import net.minecraftforge.registries.IForgeRegistry;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 import org.bukkit.Art;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -81,6 +83,10 @@ import java.util.Set;
 @SuppressWarnings({"ConstantConditions", "deprecation"})
 public class BukkitRegistry {
 
+    private static final Marker STARTUP = MarkerManager.getMarker("STARTUP");
+    private static final RegistryTally REGISTRY_TALLY = new RegistryTally();
+    private static boolean registrySummaryPending;
+
     private static final List<Class<?>> MAT_CTOR = ImmutableList.of(int.class);
     private static final List<Class<?>> ENTITY_CTOR = ImmutableList.of(String.class, Class.class, int.class);
     private static final List<Class<?>> ENV_CTOR = ImmutableList.of(int.class);
@@ -105,6 +111,7 @@ public class BukkitRegistry {
     public static void registerAll(DedicatedServer console) {
         CrashReportCallables.registerCrashCallable("Arclight Release", ArclightVersion.current()::getReleaseName);
         CrashReportCallables.registerCrashCallable("Arclight", new CraftCrashReport());
+        REGISTRY_TALLY.reset();
         loadMaterials();
         loadPotions();
         loadEnchantments();
@@ -124,6 +131,50 @@ public class BukkitRegistry {
                 }
             }
         } catch (Throwable ignored) {
+        }
+        if (quietStartup()) {
+            registrySummaryPending = true;
+        }
+    }
+
+    private static boolean quietStartup() {
+        return ArclightConfig.spec().getOptimization().isQuietStartup();
+    }
+
+    private static void logRegistry(String key, Object... args) {
+        if (quietStartup()) {
+            ArclightMod.LOGGER.debug(key, args);
+        } else {
+            ArclightMod.LOGGER.info(key, args);
+        }
+    }
+
+    private static void flushRegistrySummary() {
+        if (!quietStartup() || !registrySummaryPending) {
+            return;
+        }
+        registrySummaryPending = false;
+        ArclightMod.LOGGER.info(STARTUP, "registry.summary",
+            REGISTRY_TALLY.materials, REGISTRY_TALLY.materialBlocks, REGISTRY_TALLY.materialItems,
+            REGISTRY_TALLY.potions, REGISTRY_TALLY.enchantments, REGISTRY_TALLY.entities,
+            REGISTRY_TALLY.professions, REGISTRY_TALLY.biomes, REGISTRY_TALLY.environments);
+    }
+
+    private static final class RegistryTally {
+        int materials;
+        int materialBlocks;
+        int materialItems;
+        int potions;
+        int enchantments;
+        int entities;
+        int professions;
+        int biomes;
+        int environments;
+
+        void reset() {
+            materials = materialBlocks = materialItems = 0;
+            potions = enchantments = entities = 0;
+            professions = biomes = environments = 0;
         }
     }
 
@@ -281,7 +332,8 @@ public class BukkitRegistry {
             }
         }
         EnumHelper.addEnums(Biome.class, newTypes);
-        ArclightMod.LOGGER.info("registry.biome", newTypes.size());
+        REGISTRY_TALLY.biomes = newTypes.size();
+        logRegistry("registry.biome", newTypes.size());
     }
 
     private static void loadVillagerProfessions() {
@@ -306,7 +358,8 @@ public class BukkitRegistry {
             }
         }
         EnumHelper.addEnums(Villager.Profession.class, newTypes);
-        ArclightMod.LOGGER.info("registry.villager-profession", newTypes.size());
+        REGISTRY_TALLY.professions = newTypes.size();
+        logRegistry("registry.villager-profession", newTypes.size());
     }
 
     public static void registerEnvironments(Registry<LevelStem> registry) {
@@ -326,7 +379,9 @@ public class BukkitRegistry {
             }
         }
         EnumHelper.addEnums(World.Environment.class, newTypes);
-        ArclightMod.LOGGER.info("registry.environment", newTypes.size());
+        REGISTRY_TALLY.environments = newTypes.size();
+        logRegistry("registry.environment", newTypes.size());
+        flushRegistrySummary();
     }
 
     private static void loadEntities() {
@@ -356,7 +411,8 @@ public class BukkitRegistry {
         }
         EnumHelper.addEnums(EntityType.class, newTypes);
         EntityClassLookup.init();
-        ArclightMod.LOGGER.info("registry.entity-type", newTypes.size());
+        REGISTRY_TALLY.entities = newTypes.size();
+        logRegistry("registry.entity-type", newTypes.size());
     }
 
     private static void loadEnchantments() {
@@ -375,7 +431,8 @@ public class BukkitRegistry {
             }
         }
         Enchantment.stopAcceptingRegistrations();
-        ArclightMod.LOGGER.info("registry.enchantment", size - origin);
+        REGISTRY_TALLY.enchantments = size - origin;
+        logRegistry("registry.enchantment", size - origin);
     }
 
     private static void loadPotions() {
@@ -397,7 +454,8 @@ public class BukkitRegistry {
             }
         }
         PotionEffectType.stopAcceptingRegistrations();
-        ArclightMod.LOGGER.info("registry.potion", size - origin);
+        REGISTRY_TALLY.potions = size - origin;
+        logRegistry("registry.potion", size - origin);
         int typeId = PotionType.values().length;
         List<PotionType> newTypes = new ArrayList<>();
         BiMap<PotionType, String> map = HashBiMap.create(Unsafe.getStatic(CraftPotionUtil.class, "regular"));
@@ -470,7 +528,10 @@ public class BukkitRegistry {
             }
         }
         EnumHelper.addEnums(Material.class, list);
-        ArclightMod.LOGGER.info("registry.material", i - origin, blocks, items);
+        REGISTRY_TALLY.materials = i - origin;
+        REGISTRY_TALLY.materialBlocks = blocks;
+        REGISTRY_TALLY.materialItems = items;
+        logRegistry("registry.material", i - origin, blocks, items);
     }
 
     private static MaterialPropertySpec matSpec(ResourceLocation location) {
