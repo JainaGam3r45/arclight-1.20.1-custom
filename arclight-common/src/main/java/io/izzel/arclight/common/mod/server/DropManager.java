@@ -31,6 +31,7 @@ import org.bukkit.permissions.PermissionDefault;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -42,6 +43,9 @@ public final class DropManager {
     private static final String PERMISSION = "bukkit.command.drop";
     private static final int PLATFORM_RADIUS = 2;
     private static final int CHAT_CENTER = 154;
+    private static final int NETHER_CEILING_CAP = 120;
+    private static final int NETHER_VERTICAL_RANGE = 32;
+    private static final int END_VERTICAL_RANGE = 40;
     private static DropState drop;
     private static DropSettings settings = DropSettings.defaults();
     private static boolean loaded;
@@ -393,13 +397,14 @@ public final class DropManager {
         Circle circle = enclosingCircle(players.stream().map(player -> new Point(player.getLocation().getX(), player.getLocation().getZ())).toList());
         int centerX = (int) Math.floor(circle.x);
         int centerZ = (int) Math.floor(circle.z);
+        int preferredY = preferredY(players);
         Location best = null;
         double bestScore = Double.POSITIVE_INFINITY;
         double bestMaxDist = Double.POSITIVE_INFINITY;
         double bestCenterDist = Double.POSITIVE_INFINITY;
         for (int x = centerX - settings.searchRadius; x <= centerX + settings.searchRadius; x++) {
             for (int z = centerZ - settings.searchRadius; z <= centerZ + settings.searchRadius; z++) {
-                Location candidate = safePlatform(world, x, z);
+                Location candidate = safePlatform(world, x, z, preferredY);
                 if (candidate == null) {
                     continue;
                 }
@@ -423,7 +428,24 @@ public final class DropManager {
         return best;
     }
 
-    private static Location safePlatform(World world, int x, int z) {
+    private static int preferredY(List<Player> players) {
+        List<Integer> heights = new ArrayList<>(players.size());
+        for (Player player : players) {
+            heights.add(player.getLocation().getBlockY());
+        }
+        Collections.sort(heights);
+        return heights.get(heights.size() / 2);
+    }
+
+    private static Location safePlatform(World world, int x, int z, int preferredY) {
+        return switch (world.getEnvironment()) {
+            case NETHER -> safeVerticalPlatform(world, x, z, preferredY, NETHER_VERTICAL_RANGE, Math.min(NETHER_CEILING_CAP, world.getMaxHeight() - 3), true);
+            case THE_END -> safeVerticalPlatform(world, x, z, preferredY, END_VERTICAL_RANGE, world.getMaxHeight() - 3, false);
+            default -> safeOverworldPlatform(world, x, z);
+        };
+    }
+
+    private static Location safeOverworldPlatform(World world, int x, int z) {
         int floorY = world.getMinHeight();
         for (int offsetX = -PLATFORM_RADIUS; offsetX <= PLATFORM_RADIUS; offsetX++) {
             for (int offsetZ = -PLATFORM_RADIUS; offsetZ <= PLATFORM_RADIUS; offsetZ++) {
@@ -437,11 +459,48 @@ public final class DropManager {
                 floorY = Math.max(floorY, highest + 1);
             }
         }
-        if (floorY + 2 >= world.getMaxHeight()) {
+        return validateFloor(world, x, z, floorY, false);
+    }
+
+    private static Location safeVerticalPlatform(World world, int x, int z, int preferredY, int range, int maxFloorY, boolean nether) {
+        int minFloorY = world.getMinHeight() + 1;
+        int maxFloor = Math.min(maxFloorY, world.getMaxHeight() - 3);
+        if (minFloorY > maxFloor) {
+            return null;
+        }
+        preferredY = Math.max(minFloorY, Math.min(preferredY, maxFloor));
+        for (int delta = 0; delta <= range; delta++) {
+            Location above = validateFloor(world, x, z, preferredY + delta, nether);
+            if (above != null) {
+                return above;
+            }
+            if (delta > 0) {
+                Location below = validateFloor(world, x, z, preferredY - delta, nether);
+                if (below != null) {
+                    return below;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static Location validateFloor(World world, int x, int z, int floorY, boolean nether) {
+        if (floorY < world.getMinHeight() + 1 || floorY + 2 >= world.getMaxHeight()) {
+            return null;
+        }
+        if (nether && floorY > NETHER_CEILING_CAP) {
             return null;
         }
         for (int offsetX = -PLATFORM_RADIUS; offsetX <= PLATFORM_RADIUS; offsetX++) {
             for (int offsetZ = -PLATFORM_RADIUS; offsetZ <= PLATFORM_RADIUS; offsetZ++) {
+                Block support = world.getBlockAt(x + offsetX, floorY - 1, z + offsetZ);
+                Material type = support.getType();
+                if (!type.isSolid() || support.isLiquid()) {
+                    return null;
+                }
+                if (nether && type == Material.BEDROCK && floorY - 1 >= NETHER_CEILING_CAP) {
+                    return null;
+                }
                 for (int y = floorY; y <= floorY + 2; y++) {
                     if (!world.getBlockAt(x + offsetX, y, z + offsetZ).getType().isAir()) {
                         return null;
