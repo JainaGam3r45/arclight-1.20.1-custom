@@ -318,17 +318,17 @@ public final class PerformanceBarManager {
     }
 
     private static String formatTpsTitle(BarSettings settings, double tps, double mspt, int ping, boolean tpsGood, boolean tpsMedium, boolean msptGood, boolean msptMedium, boolean pingGood, boolean pingMedium) {
-        return settings.title
+        return ChatColor.translateAlternateColorCodes('&', settings.title
             .replace("<tps>", settings.metric(String.format(Locale.ROOT, "%.2f", tps), tpsGood, tpsMedium))
             .replace("<mspt>", settings.metric(String.format(Locale.ROOT, "%.2f", mspt), msptGood, msptMedium))
-            .replace("<ping>", settings.metric(Integer.toString(ping), pingGood, pingMedium));
+            .replace("<ping>", settings.metric(Integer.toString(ping), pingGood, pingMedium)));
     }
 
     private static String formatRamTitle(BarSettings settings, long used, long maximum, double percent, boolean good, boolean medium) {
-        return settings.title
+        return ChatColor.translateAlternateColorCodes('&', settings.title
             .replace("<used>", settings.metric(formatMemory(used), good, medium))
             .replace("<xmx>", formatMemory(maximum))
-            .replace("<percent>", settings.metric(String.format(Locale.ROOT, "%.1f%%", percent), good, medium));
+            .replace("<percent>", settings.metric(String.format(Locale.ROOT, "%.1f%%", percent), good, medium)));
     }
 
     private static String formatMemory(long bytes) {

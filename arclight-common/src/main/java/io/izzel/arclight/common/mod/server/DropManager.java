@@ -31,11 +31,9 @@ import org.bukkit.permissions.PermissionDefault;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -61,6 +59,8 @@ public final class DropManager {
             .requires(source -> ((CommandSourceBridge) source).bridge$getBukkitSender().hasPermission(PERMISSION));
         command.then(Commands.literal("locate").executes(DropManager::locate));
         command.then(Commands.literal("start").executes(DropManager::start));
+        command.then(Commands.literal("cancel").executes(DropManager::cancelCommand));
+        command.then(Commands.literal("recalculate").executes(DropManager::recalculate));
         dispatcher.register(command);
     }
 
@@ -92,11 +92,10 @@ public final class DropManager {
             return 0;
         }
         World world = administrator.getWorld();
-        List<Player> participants = new ArrayList<>();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.getWorld().equals(world) && player.getGameMode() != org.bukkit.GameMode.SPECTATOR) {
-                participants.add(player);
-            }
+        List<Player> participants = competitors(world);
+        if (participants.isEmpty()) {
+            context.getSource().sendFailure(Component.literal("Need at least one non-admin player in this world."));
+            return 0;
         }
         Location target = findSafeLocation(world, participants);
         if (target == null) {
@@ -126,6 +125,24 @@ public final class DropManager {
         broadcast("messages.started", placeholders(drop, null, 0));
         saveState();
         return 1;
+    }
+
+    private static int cancelCommand(CommandContext<CommandSourceStack> context) {
+        if (drop == null) {
+            context.getSource().sendFailure(Component.literal("There is no drop to cancel."));
+            return 0;
+        }
+        cancel();
+        context.getSource().sendSuccess(() -> Component.literal("Drop cancelled."), false);
+        return 1;
+    }
+
+    private static int recalculate(CommandContext<CommandSourceStack> context) {
+        if (drop != null) {
+            cleanup(drop);
+            clearState();
+        }
+        return locate(context);
     }
 
     public static void tick(MinecraftServer server) {
@@ -180,6 +197,10 @@ public final class DropManager {
         if (drop == null || drop.phase != Phase.ACTIVE || !matches(player, position)) {
             return;
         }
+        Player bukkit = ((ServerPlayerEntityBridge) player).bridge$getBukkitEntity();
+        if (isDropAdmin(bukkit)) {
+            return;
+        }
         UUID opener = player.getUUID();
         if (drop.firstOpener == null) {
             drop.firstOpener = opener;
@@ -217,11 +238,13 @@ public final class DropManager {
             return;
         }
         Set<UUID> visible = new HashSet<>();
-        for (UUID participant : drop.participants) {
-            Player player = Bukkit.getPlayer(participant);
-            if (player != null && player.isOnline() && player.getWorld().equals(world) && player.getGameMode() != org.bukkit.GameMode.SPECTATOR) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!player.getWorld().equals(world) || player.getGameMode() == org.bukkit.GameMode.SPECTATOR) {
+                continue;
+            }
+            if (drop.participants.contains(player.getUniqueId()) || isDropAdmin(player)) {
                 drop.bossBar.addPlayer(player);
-                visible.add(participant);
+                visible.add(player.getUniqueId());
             }
         }
         for (Player player : List.copyOf(drop.bossBar.getPlayers())) {
@@ -233,16 +256,21 @@ public final class DropManager {
     }
 
     private static void updateMilestones(World world) {
-        List<Integer> milestones = settings.milestones.stream().sorted().toList();
+        List<Integer> milestones = settings.milestones.stream().sorted((a, b) -> Integer.compare(b, a)).toList();
         for (UUID participant : drop.participants) {
             Player player = Bukkit.getPlayer(participant);
-            if (player == null || !player.isOnline() || !player.getWorld().equals(world)) {
+            if (player == null || !player.isOnline() || !player.getWorld().equals(world) || isDropAdmin(player)) {
                 continue;
             }
             double distance = horizontalDistance(player.getLocation(), drop.location);
-            Integer reached = milestones.stream().filter(milestone -> distance <= milestone).findFirst().orElse(null);
-            if (reached != null && drop.milestones.computeIfAbsent(participant, key -> new HashSet<>()).add(reached)) {
-                broadcast("messages.nearby", placeholders(drop, player.getName(), (int) Math.ceil(distance)));
+            boolean announced = false;
+            for (Integer milestone : milestones) {
+                if (distance <= milestone && drop.announcedMilestones.add(milestone)) {
+                    broadcast("messages.nearby", placeholders(drop, player.getName(), (int) Math.ceil(distance)));
+                    announced = true;
+                }
+            }
+            if (announced) {
                 saveState();
             }
         }
@@ -347,25 +375,52 @@ public final class DropManager {
         return chest.getType() == Material.CHEST;
     }
 
+    private static boolean isDropAdmin(Player player) {
+        return player.hasPermission(PERMISSION);
+    }
+
+    private static List<Player> competitors(World world) {
+        List<Player> participants = new ArrayList<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player.getWorld().equals(world) && player.getGameMode() != org.bukkit.GameMode.SPECTATOR && !isDropAdmin(player)) {
+                participants.add(player);
+            }
+        }
+        return participants;
+    }
+
     private static Location findSafeLocation(World world, List<Player> players) {
         Circle circle = enclosingCircle(players.stream().map(player -> new Point(player.getLocation().getX(), player.getLocation().getZ())).toList());
         int centerX = (int) Math.floor(circle.x);
         int centerZ = (int) Math.floor(circle.z);
-        for (int radius = 0; radius <= settings.searchRadius; radius++) {
-            for (int x = centerX - radius; x <= centerX + radius; x++) {
-                Location result = safePlatform(world, x, centerZ - radius);
-                if (result != null) return result;
-                result = safePlatform(world, x, centerZ + radius);
-                if (result != null) return result;
-            }
-            for (int z = centerZ - radius + 1; z < centerZ + radius; z++) {
-                Location result = safePlatform(world, centerX - radius, z);
-                if (result != null) return result;
-                result = safePlatform(world, centerX + radius, z);
-                if (result != null) return result;
+        Location best = null;
+        double bestScore = Double.POSITIVE_INFINITY;
+        double bestMaxDist = Double.POSITIVE_INFINITY;
+        double bestCenterDist = Double.POSITIVE_INFINITY;
+        for (int x = centerX - settings.searchRadius; x <= centerX + settings.searchRadius; x++) {
+            for (int z = centerZ - settings.searchRadius; z <= centerZ + settings.searchRadius; z++) {
+                Location candidate = safePlatform(world, x, z);
+                if (candidate == null) {
+                    continue;
+                }
+                double minDist = Double.POSITIVE_INFINITY;
+                double maxDist = Double.NEGATIVE_INFINITY;
+                for (Player player : players) {
+                    double distance = horizontalDistance(player.getLocation(), candidate);
+                    minDist = Math.min(minDist, distance);
+                    maxDist = Math.max(maxDist, distance);
+                }
+                double score = maxDist - minDist;
+                double centerDist = distance(candidate.getX() + 0.5, candidate.getZ() + 0.5, circle.x, circle.z);
+                if (score < bestScore || score == bestScore && maxDist < bestMaxDist || score == bestScore && maxDist == bestMaxDist && centerDist < bestCenterDist) {
+                    best = candidate;
+                    bestScore = score;
+                    bestMaxDist = maxDist;
+                    bestCenterDist = centerDist;
+                }
             }
         }
-        return null;
+        return best;
     }
 
     private static Location safePlatform(World world, int x, int z) {
@@ -446,9 +501,18 @@ public final class DropManager {
             administrator.sendMessage(center(line));
         }
         String teleport = "/minecraft:tp @s " + state.location.getBlockX() + " " + (state.location.getBlockY() + 1) + " " + state.location.getBlockZ();
-        Component button = Component.literal(ChatColor.translateAlternateColorCodes('&', "&e&l[ CLICK TO TELEPORT TO THE DROP ]"))
+        Component teleportButton = Component.literal(ChatColor.translateAlternateColorCodes('&', "&e&l[ CLICK TO TELEPORT TO THE DROP ]"))
             .withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, teleport)));
-        ((org.bukkit.craftbukkit.v.entity.CraftPlayer) administrator).getHandle().sendSystemMessage(button);
+        Component recalculateButton = Component.literal(ChatColor.translateAlternateColorCodes('&', "&a&l[ RECALCULAR ]"))
+            .withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/drop recalculate")));
+        Component cancelButton = Component.literal(ChatColor.translateAlternateColorCodes('&', "&c&l[ CANCELAR ]"))
+            .withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/drop cancel")));
+        Component actions = Component.empty()
+            .append(recalculateButton)
+            .append(Component.literal(" "))
+            .append(cancelButton);
+        ((org.bukkit.craftbukkit.v.entity.CraftPlayer) administrator).getHandle().sendSystemMessage(teleportButton);
+        ((org.bukkit.craftbukkit.v.entity.CraftPlayer) administrator).getHandle().sendSystemMessage(actions);
     }
 
     private static void broadcast(String path, String values) {
@@ -513,7 +577,7 @@ public final class DropManager {
         private final Set<UUID> participants;
         private UUID firstOpener;
         private String firstOpenerName;
-        private final Map<UUID, Set<Integer>> milestones = new HashMap<>();
+        private final Set<Integer> announcedMilestones = new HashSet<>();
         private BossBar bossBar;
 
         private DropState(Phase phase, Location location, Set<UUID> participants) {
@@ -538,10 +602,11 @@ public final class DropManager {
                 String opener = config.getString(root + ".first-opener");
                 if (opener != null) state.firstOpener = UUID.fromString(opener);
                 state.firstOpenerName = config.getString(root + ".first-opener-name");
+                state.announcedMilestones.addAll(config.getIntegerList(root + ".announced-milestones"));
                 ConfigurationSection milestones = config.getConfigurationSection(root + ".milestones");
                 if (milestones != null) {
                     for (String player : milestones.getKeys(false)) {
-                        state.milestones.put(UUID.fromString(player), new HashSet<>(milestones.getIntegerList(player)));
+                        state.announcedMilestones.addAll(milestones.getIntegerList(player));
                     }
                 }
                 return state;
@@ -560,9 +625,7 @@ public final class DropManager {
             config.set(root + ".participants", participants.stream().map(UUID::toString).toList());
             config.set(root + ".first-opener", firstOpener == null ? null : firstOpener.toString());
             config.set(root + ".first-opener-name", firstOpenerName);
-            for (Map.Entry<UUID, Set<Integer>> entry : milestones.entrySet()) {
-                config.set(root + ".milestones." + entry.getKey(), new ArrayList<>(entry.getValue()));
-            }
+            config.set(root + ".announced-milestones", new ArrayList<>(announcedMilestones));
         }
     }
 

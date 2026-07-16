@@ -37,6 +37,17 @@ task collect(type: Copy) {
     dependsOn { project(':arclight-forge').tasks.jar }
 }
 
+// Keep root build/libs in sync with the forge jar so deploy never picks up a stale artifact.
+tasks.register('build') {
+    dependsOn(tasks.collect)
+}
+
+gradle.projectsEvaluated {
+    project(':arclight-forge').tasks.named('jar').configure {
+        finalizedBy(rootProject.tasks.collect)
+    }
+}
+
 def gitBranch() {
     def stdout = new ByteArrayOutputStream()
     exec {
