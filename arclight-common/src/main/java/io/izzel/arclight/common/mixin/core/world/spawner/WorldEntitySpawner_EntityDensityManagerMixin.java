@@ -1,6 +1,7 @@
 package io.izzel.arclight.common.mixin.core.world.spawner;
 
 import io.izzel.arclight.common.bridge.core.world.spawner.WorldEntitySpawnerBridge;
+import io.izzel.arclight.common.mod.server.spawn.EntityGenerationManager;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.EntityType;
@@ -37,6 +38,10 @@ public abstract class WorldEntitySpawner_EntityDensityManagerMixin implements Wo
 
     @Override
     public boolean bridge$canSpawn(MobCategory classification, ChunkPos pos, int limit) {
+        if (EntityGenerationManager.isPerPlayerMobSpawns()) {
+            // Paper-lite: skip shared global pool; LocalMobCapCalculator already tracks per-player proximity.
+            return this.localMobCapCalculator.canSpawn(classification, pos);
+        }
         int i = limit * this.spawnableChunkCount / 289;
         return this.mobCategoryCounts.getInt(classification) >= i ? false : this.localMobCapCalculator.canSpawn(classification, pos);
     }

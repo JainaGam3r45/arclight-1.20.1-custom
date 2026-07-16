@@ -9,8 +9,10 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.progress.ChunkProgressListener;
 import net.minecraft.util.thread.BlockableEventLoop;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.chunk.LightChunkGetter;
 import net.minecraft.world.level.dimension.LevelStem;
@@ -46,6 +48,7 @@ public abstract class ChunkMapMixin implements ChunkMapBridge {
     @Shadow @Mutable public ChunkGenerator generator;
     @Shadow @Final public ServerLevel level;
     @Shadow @Final @Mutable private RandomState randomState;
+    @Shadow public abstract boolean anyPlayerCloseEnoughForSpawning(ChunkPos pos);
     @Invoker("tick") public abstract void bridge$tick(BooleanSupplier hasMoreTime);
     @Invoker("setViewDistance") public abstract void bridge$setViewDistance(int i);
     // @formatter:on
@@ -93,5 +96,34 @@ public abstract class ChunkMapMixin implements ChunkMapBridge {
         } else {
             this.randomState = RandomState.create(NoiseGeneratorSettings.dummy(), this.level.registryAccess().lookupOrThrow(Registries.NOISE), this.level.getSeed());
         }
+    }
+
+    @Override
+    public boolean bridge$anyPlayerCloseEnoughForSpawning(ChunkPos pos, boolean reducedRange) {
+        if (!reducedRange) {
+            return this.anyPlayerCloseEnoughForSpawning(pos);
+        }
+        var config = ((WorldBridge) this.level).bridge$spigotConfig();
+        int chunkRange = config.mobSpawnRange;
+        if (chunkRange > config.viewDistance) {
+            chunkRange = config.viewDistance;
+        }
+        if (chunkRange > 8) {
+            chunkRange = 8;
+        }
+        double blockRange = Math.pow(chunkRange << 4, 2);
+        double centerX = pos.getMiddleBlockX();
+        double centerZ = pos.getMiddleBlockZ();
+        for (ServerPlayer player : this.level.players()) {
+            if (player.isSpectator()) {
+                continue;
+            }
+            double dx = centerX - player.getX();
+            double dz = centerZ - player.getZ();
+            if (dx * dx + dz * dz < blockRange) {
+                return true;
+            }
+        }
+        return false;
     }
 }

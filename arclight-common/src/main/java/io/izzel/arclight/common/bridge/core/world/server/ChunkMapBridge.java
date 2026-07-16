@@ -22,4 +22,9 @@ public interface ChunkMapBridge {
     void bridge$setViewDistance(int i);
 
     void bridge$setChunkGenerator(ChunkGenerator generator);
+
+    /**
+     * Spigot-style spawn proximity. When {@code reducedRange} is true, uses {@code mob-spawn-range}.
+     */
+    boolean bridge$anyPlayerCloseEnoughForSpawning(ChunkPos pos, boolean reducedRange);
 }
