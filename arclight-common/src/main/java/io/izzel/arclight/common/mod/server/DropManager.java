@@ -125,6 +125,7 @@ public final class DropManager {
             return 0;
         }
         drop.phase = Phase.ACTIVE;
+        seedMilestones();
         createBossBar();
         broadcast("messages.started", placeholders(drop, null, 0));
         saveState();
@@ -257,6 +258,25 @@ public final class DropManager {
             }
         }
         drop.bossBar.setTitle(format(settings.bossBarTitle, placeholders(drop, null, 0)));
+    }
+
+    private static void seedMilestones() {
+        World world = Bukkit.getWorld(drop.worldName);
+        if (world == null) {
+            return;
+        }
+        for (UUID participant : drop.participants) {
+            Player player = Bukkit.getPlayer(participant);
+            if (player == null || !player.isOnline() || !player.getWorld().equals(world) || isDropAdmin(player)) {
+                continue;
+            }
+            double distance = horizontalDistance(player.getLocation(), drop.location);
+            for (Integer milestone : settings.milestones) {
+                if (distance <= milestone) {
+                    drop.announcedMilestones.add(milestone);
+                }
+            }
+        }
     }
 
     private static void updateMilestones(World world) {
@@ -578,11 +598,16 @@ public final class DropManager {
         if (drop == null) {
             return;
         }
-        Collection<Player> recipients = new ArrayList<>();
         World world = Bukkit.getWorld(drop.worldName);
-        for (UUID uuid : drop.participants) {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player != null && player.isOnline() && player.getWorld().equals(world)) {
+        if (world == null) {
+            return;
+        }
+        Collection<Player> recipients = new ArrayList<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!player.getWorld().equals(world) || player.getGameMode() == org.bukkit.GameMode.SPECTATOR) {
+                continue;
+            }
+            if (drop.participants.contains(player.getUniqueId()) || isDropAdmin(player)) {
                 recipients.add(player);
             }
         }
@@ -598,7 +623,7 @@ public final class DropManager {
     }
 
     private static String format(String text, String values) {
-        for (String pair : values.split("\\u0000")) {
+        for (String pair : values.split("\u0000", -1)) {
             int index = pair.indexOf('=');
             if (index > 0) text = text.replace(pair.substring(0, index), pair.substring(index + 1));
         }
