@@ -39,7 +39,10 @@ public abstract class WorldEntitySpawner_EntityDensityManagerMixin implements Wo
     @Override
     public boolean bridge$canSpawn(MobCategory classification, ChunkPos pos, int limit) {
         if (EntityGenerationManager.isPerPlayerMobSpawns()) {
-            // Paper-lite: skip shared global pool; LocalMobCapCalculator already tracks per-player proximity.
+            // Local density per player, plus Bukkit spawn-limits as an absolute world ceiling.
+            if (limit > 0 && this.mobCategoryCounts.getInt(classification) >= limit) {
+                return false;
+            }
             return this.localMobCapCalculator.canSpawn(classification, pos);
         }
         int i = limit * this.spawnableChunkCount / 289;
