@@ -43,6 +43,13 @@ public class ArclightConfig {
         return instance.spec;
     }
 
+    /**
+     * Reload {@code arclight.conf} from disk (and jar defaults) without restarting the JVM.
+     */
+    public static synchronized void reload() throws Exception {
+        load();
+    }
+
     private static void load() throws Exception {
         Path path = Paths.get("arclight.conf");
         CommentedConfigurationNode node = HoconConfigurationLoader.builder().setSource(

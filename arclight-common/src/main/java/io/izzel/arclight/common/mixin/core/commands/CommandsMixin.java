@@ -11,6 +11,9 @@ import io.izzel.arclight.common.mod.compat.CommandNodeHooks;
 import io.izzel.arclight.common.mod.util.BukkitDispatcher;
 import io.izzel.arclight.common.mod.server.DropManager;
 import io.izzel.arclight.common.mod.server.PerformanceBarManager;
+import io.izzel.arclight.common.mod.server.TargetCommand;
+import io.izzel.arclight.common.mod.server.chunk.ChunkCapCommand;
+import io.izzel.arclight.common.mod.server.spawn.MobCapCommand;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -47,6 +50,9 @@ public abstract class CommandsMixin {
         this.dispatcher.setConsumer((context, b, i) -> context.getSource().onCommandComplete(context, b, i));
         PerformanceBarManager.register(this.dispatcher);
         DropManager.register(this.dispatcher);
+        MobCapCommand.register(this.dispatcher);
+        ChunkCapCommand.register(this.dispatcher);
+        TargetCommand.register(this.dispatcher);
     }
 
     public int performPrefixedCommand(CommandSourceStack commandSourceStack, String s, String label) {

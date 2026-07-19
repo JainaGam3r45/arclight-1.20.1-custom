@@ -333,6 +333,7 @@
     "world.item.enchantment.DamageEnchantmentMixin",
     "world.item.enchantment.FrostWalkerEnchantmentMixin",
     "world.level.LevelMixin",
+    "world.level.LocalMobCapCalculator_MobCountsMixin",
     "world.level.block.BambooSaplingBlockMixin",
     "world.level.block.BambooStalkBlockMixin",
     "world.level.block.BaseFireBlockMixin",

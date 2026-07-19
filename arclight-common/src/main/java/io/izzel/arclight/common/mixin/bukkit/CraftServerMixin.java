@@ -82,8 +82,25 @@ public abstract class CraftServerMixin implements CraftServerBridge {
     @Shadow public abstract void enablePlugins(PluginLoadOrder type);
     @Shadow public abstract PluginManager getPluginManager();
     @Shadow@Final private String serverVersion;
+    @Shadow @Final private it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap<org.bukkit.entity.SpawnCategory> spawnCategoryLimit;
+    @Shadow public abstract int getTicksPerSpawns(org.bukkit.entity.SpawnCategory spawnCategory);
     @Accessor("logger") @Mutable public abstract void setLogger(Logger logger);
     // @formatter:on
+
+    @Override
+    public void bridge$reloadSpawnSettings() {
+        this.configuration = YamlConfiguration.loadConfiguration(this.getConfigFile());
+        for (org.bukkit.entity.SpawnCategory spawnCategory : org.bukkit.entity.SpawnCategory.values()) {
+            if (org.bukkit.craftbukkit.v.util.CraftSpawnCategory.isValidForLimits(spawnCategory)) {
+                this.spawnCategoryLimit.put(spawnCategory, this.configuration.getInt(org.bukkit.craftbukkit.v.util.CraftSpawnCategory.getConfigNameSpawnLimit(spawnCategory)));
+            }
+        }
+        for (World world : this.worlds.values()) {
+            if (world instanceof org.bukkit.craftbukkit.v.CraftWorld craftWorld) {
+                ((WorldBridge) craftWorld.getHandle()).bridge$refreshTicksPerSpawn();
+            }
+        }
+    }
 
     @Inject(method = "<init>", at = @At("RETURN"))
     public void arclight$setBrand(DedicatedServer console, PlayerList playerList, CallbackInfo ci) {

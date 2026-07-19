@@ -177,6 +177,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1887,11 +1888,13 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
         Player player = this.getCraftPlayer();
         Location from = player.getLocation();
         Location to = new Location(this.getCraftPlayer().getWorld(), x, y, z, yaw, pitch);
+        // Callers (vanilla absolute teleports, cause overload) may pass an immutable empty set.
+        Set<RelativeMovement> relatives = relativeSet;
         if (!from.equals(to)) {
             PlayerTeleportEvent event = new PlayerTeleportEvent(player, from.clone(), to.clone(), cause);
             this.cserver.getPluginManager().callEvent(event);
             if (event.isCancelled() || !to.equals(event.getTo())) {
-                relativeSet.clear();
+                relatives = EnumSet.noneOf(RelativeMovement.class);
                 to = (event.isCancelled() ? event.getFrom() : event.getTo());
                 x = to.getX();
                 y = to.getY();
@@ -1907,11 +1910,11 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
         if (Float.isNaN(pitch)) {
             pitch = 0.0f;
         }
-        this.internalTeleport(x, y, z, yaw, pitch, relativeSet);
+        this.internalTeleport(x, y, z, yaw, pitch, relatives);
     }
 
     public void teleport(double d0, double d1, double d2, float f, float f1, PlayerTeleportEvent.TeleportCause cause) {
-        this.teleport(d0, d1, d2, f, f1, Collections.emptySet(), cause);
+        this.teleport(d0, d1, d2, f, f1, EnumSet.noneOf(RelativeMovement.class), cause);
     }
 
     public void teleport(double d0, double d1, double d2, float f, float f1, Set<RelativeMovement> set, PlayerTeleportEvent.TeleportCause cause) {
