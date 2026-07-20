@@ -1,14 +1,17 @@
 package io.izzel.arclight.common.mod.server;
 
+import io.izzel.arclight.i18n.ArclightConfig;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
-import java.io.File;
-import java.io.IOException;
+import java.util.Map;
 
+/**
+ * Bukkit-facing view of the unified {@code arclight.yml}.
+ * Load/save go through Configurate so comments are preserved on disk.
+ */
 public final class ArclightConfiguration {
 
-    private static final File FILE = new File("arclight.yml");
     private static YamlConfiguration configuration;
 
     private ArclightConfiguration() {
@@ -16,20 +19,33 @@ public final class ArclightConfiguration {
 
     public static synchronized YamlConfiguration get() {
         if (configuration == null) {
-            configuration = YamlConfiguration.loadConfiguration(FILE);
+            configuration = fromConfigurate();
         }
         return configuration;
     }
 
     public static synchronized YamlConfiguration reload() {
-        configuration = YamlConfiguration.loadConfiguration(FILE);
+        configuration = fromConfigurate();
+        return configuration;
+    }
+
+    /**
+     * Rebuild the Bukkit view after {@link ArclightConfig#reload()}.
+     */
+    public static synchronized YamlConfiguration refreshFromDisk() throws Exception {
+        ArclightConfig.reload();
+        configuration = fromConfigurate();
         return configuration;
     }
 
     public static synchronized void save() {
         try {
-            get().save(FILE);
-        } catch (IOException exception) {
+            if (configuration == null) {
+                return;
+            }
+            ArclightConfig.mergeFromYamlString(configuration.saveToString());
+            configuration = fromConfigurate();
+        } catch (Exception exception) {
             throw new IllegalStateException("Unable to save arclight.yml", exception);
         }
     }
@@ -51,6 +67,29 @@ public final class ArclightConfiguration {
             } else {
                 target.set(key, value);
             }
+        }
+    }
+
+    private static YamlConfiguration fromConfigurate() {
+        try {
+            String yaml = ArclightConfig.toYamlString();
+            YamlConfiguration bukkit = new YamlConfiguration();
+            bukkit.loadFromString(yaml);
+            return bukkit;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to read arclight.yml", exception);
+        }
+    }
+
+    /**
+     * Apply leaf values into Configurate without a full Bukkit dump.
+     */
+    public static synchronized void putAll(Map<String, Object> values) {
+        try {
+            ArclightConfig.putAll(values);
+            configuration = fromConfigurate();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to update arclight.yml", exception);
         }
     }
 }

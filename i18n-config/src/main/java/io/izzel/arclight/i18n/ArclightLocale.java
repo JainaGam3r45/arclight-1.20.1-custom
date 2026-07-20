@@ -1,8 +1,10 @@
 package io.izzel.arclight.i18n;
 
+import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.ValueType;
 import ninja.leaping.configurate.commented.CommentedConfigurationNode;
 import ninja.leaping.configurate.hocon.HoconConfigurationLoader;
+import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -102,19 +104,27 @@ public class ArclightLocale {
 
     private static Map.Entry<String, String> getLocale() {
         try {
-            Path path = Paths.get("arclight.conf");
-            if (!Files.exists(path)) {
-                throw new Exception();
-            } else {
-                CommentedConfigurationNode node = HoconConfigurationLoader.builder().setPath(path).build().load();
-                CommentedConfigurationNode locale = node.getNode("locale");
-                String current = locale.getNode("current").getString(currentLocale());
-                String fallback = locale.getNode("fallback").getString("zh_cn");
-                return new AbstractMap.SimpleImmutableEntry<>(current, fallback);
+            Path yaml = Paths.get("arclight.yml");
+            if (Files.exists(yaml)) {
+                ConfigurationNode node = YAMLConfigurationLoader.builder().setPath(yaml).build().load();
+                return readLocale(node);
             }
+            Path conf = Paths.get("arclight.conf");
+            if (Files.exists(conf)) {
+                CommentedConfigurationNode node = HoconConfigurationLoader.builder().setPath(conf).build().load();
+                return readLocale(node);
+            }
+            throw new Exception();
         } catch (Throwable t) {
             return new AbstractMap.SimpleImmutableEntry<>(currentLocale(), "zh_cn");
         }
+    }
+
+    private static Map.Entry<String, String> readLocale(ConfigurationNode node) {
+        ConfigurationNode locale = node.getNode("locale");
+        String current = locale.getNode("current").getString(currentLocale());
+        String fallback = locale.getNode("fallback").getString("zh_cn");
+        return new AbstractMap.SimpleImmutableEntry<>(current, fallback);
     }
 
     private static String currentLocale() {

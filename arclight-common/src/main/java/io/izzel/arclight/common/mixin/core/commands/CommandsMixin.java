@@ -9,6 +9,7 @@ import io.izzel.arclight.common.bridge.core.entity.player.ServerPlayerEntityBrid
 import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
 import io.izzel.arclight.common.mod.compat.CommandNodeHooks;
 import io.izzel.arclight.common.mod.util.BukkitDispatcher;
+import io.izzel.arclight.common.mod.server.ArclightCommand;
 import io.izzel.arclight.common.mod.server.DropManager;
 import io.izzel.arclight.common.mod.server.PerformanceBarManager;
 import io.izzel.arclight.common.mod.server.TargetCommand;
@@ -50,6 +51,7 @@ public abstract class CommandsMixin {
         this.dispatcher.setConsumer((context, b, i) -> context.getSource().onCommandComplete(context, b, i));
         PerformanceBarManager.register(this.dispatcher);
         DropManager.register(this.dispatcher);
+        ArclightCommand.register(this.dispatcher);
         MobCapCommand.register(this.dispatcher);
         ChunkCapCommand.register(this.dispatcher);
         TargetCommand.register(this.dispatcher);

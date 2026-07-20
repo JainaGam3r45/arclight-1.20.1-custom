@@ -1,0 +1,65 @@
+_v: 2
+
+locale:
+  fallback: zh_cn
+
+optimization:
+  cache-plugin-class: true
+  disable-data-fixer: false
+  goal-selector-update-interval: 2
+  use-activation-and-tracking-range: true
+  max-entity-collisions: 8
+  quiet-startup: true
+  spawn:
+    enabled: true
+    skip-when-mspt-above: 45.0
+    max-chunks-per-tick: 64
+    max-ms-per-tick: 10.0
+    per-player-mob-spawns: true
+    use-mob-spawn-range: true
+    relaxed-when-players-at-most: 2
+    relaxed-when-mspt-below: 30.0
+    local-mob-cap-scale: 1.0
+    local-mob-cap:
+      monster: -1
+      creature: -1
+      ambient: -1
+      axolotls: -1
+      underground_water_creature: -1
+      water_creature: -1
+      water_ambient: -1
+  chunks:
+    enabled: true
+    skip-gen-when-mspt-above: 45.0
+    max-chunk-loads-per-tick: 24
+    max-chunk-gens-per-tick: 4
+    max-chunk-sends-per-tick: 48
+    max-ms-per-tick: 4.0
+
+compatibility:
+  material-property-overrides:
+  entity-property-overrides:
+  symlink-world: false
+  extra-logic-worlds:
+    - com.example.mod.ExtraLogicWorld
+    - xyz.nucleoid.fantasy.RuntimeWorld
+  forward-permission: true
+  valid-username-regex: ""
+  lenient-item-tag-match: true
+  isolate-plugin-class-loaders:
+    - com.example.mod.package.aaaa
+  isolate-adventure-from-modloader: false
+
+proxies:
+  velocity:
+    enabled: false
+    online-mode: true
+    secret: ""
+
+async-catcher:
+  dump: true
+  warn: true
+  defaultOperation: block
+  overrides:
+  log-overrides:
+    chunk entity get: DEBUG

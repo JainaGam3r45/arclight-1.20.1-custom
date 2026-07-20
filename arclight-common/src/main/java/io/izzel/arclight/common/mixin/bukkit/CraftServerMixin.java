@@ -4,6 +4,7 @@ import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.StringReader;
 import com.google.common.collect.Lists;
 import io.izzel.arclight.common.bridge.bukkit.CraftServerBridge;
+import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
 import io.izzel.arclight.common.bridge.core.world.WorldBridge;
 import io.izzel.arclight.common.mod.server.ArclightServer;
 import io.izzel.arclight.common.mod.server.PerformanceBarManager;
@@ -100,6 +101,38 @@ public abstract class CraftServerMixin implements CraftServerBridge {
                 ((WorldBridge) craftWorld.getHandle()).bridge$refreshTicksPerSpawn();
             }
         }
+    }
+
+    @Override
+    public void bridge$reloadBukkitConfig() {
+        this.configuration = YamlConfiguration.loadConfiguration(this.getConfigFile());
+        this.commandsConfiguration = YamlConfiguration.loadConfiguration(this.getCommandsConfigFile());
+        this.overrideAllCommandBlockCommands = this.commandsConfiguration.getStringList("command-block-overrides").contains("*");
+        this.ignoreVanillaPermissions = this.commandsConfiguration.getBoolean("ignore-vanilla-permissions");
+        for (org.bukkit.entity.SpawnCategory spawnCategory : org.bukkit.entity.SpawnCategory.values()) {
+            if (org.bukkit.craftbukkit.v.util.CraftSpawnCategory.isValidForLimits(spawnCategory)) {
+                this.spawnCategoryLimit.put(spawnCategory, this.configuration.getInt(org.bukkit.craftbukkit.v.util.CraftSpawnCategory.getConfigNameSpawnLimit(spawnCategory)));
+            }
+        }
+        int autosave = this.configuration.getInt("ticks-per.autosave", 6000);
+        ((MinecraftServerBridge) this.console).bridge$setAutosavePeriod(autosave);
+        for (World world : this.worlds.values()) {
+            if (world instanceof org.bukkit.craftbukkit.v.CraftWorld craftWorld) {
+                ((WorldBridge) craftWorld.getHandle()).bridge$refreshTicksPerSpawn();
+            }
+        }
+    }
+
+    @Override
+    public boolean bridge$reloadSpigotConfig() {
+        boolean wasBungee = SpigotConfig.bungee;
+        SpigotConfig.init(new File("./spigot.yml"));
+        for (World world : this.worlds.values()) {
+            if (world instanceof org.bukkit.craftbukkit.v.CraftWorld craftWorld) {
+                ((WorldBridge) craftWorld.getHandle()).bridge$spigotConfig().init();
+            }
+        }
+        return wasBungee != SpigotConfig.bungee;
     }
 
     @Inject(method = "<init>", at = @At("RETURN"))

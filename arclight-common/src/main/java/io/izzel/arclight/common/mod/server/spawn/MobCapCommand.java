@@ -3,7 +3,6 @@ package io.izzel.arclight.common.mod.server.spawn;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import io.izzel.arclight.common.bridge.bukkit.CraftServerBridge;
 import io.izzel.arclight.common.bridge.core.command.CommandSourceBridge;
 import io.izzel.arclight.i18n.ArclightConfig;
 import io.izzel.arclight.i18n.conf.SpawnSpec;
@@ -47,9 +46,6 @@ public final class MobCapCommand {
         LiteralArgumentBuilder<CommandSourceStack> command = Commands.literal("mobcap")
             .requires(source -> ((CommandSourceBridge) source).bridge$hasPermission(2, PERMISSION))
             .executes(MobCapCommand::show);
-        command.then(Commands.literal("reload")
-            .requires(source -> ((CommandSourceBridge) source).bridge$hasPermission(2, PERMISSION))
-            .executes(MobCapCommand::reload));
         dispatcher.register(command);
 
         Command bukkit = ((CraftServer) Bukkit.getServer()).getCommandMap().getCommand("mobcap");
@@ -124,23 +120,10 @@ public final class MobCapCommand {
                 msg(source, live.toString());
             }
             msg(source, ChatColor.DARK_GRAY + "Tip: world ceiling = bukkit spawn-limits; local = local-mob-cap-scale / local-mob-cap");
+            msg(source, ChatColor.DARK_GRAY + "Use /arclight reload to reload arclight.yml / bukkit.yml / spigot.yml");
             return 1;
         } catch (Exception e) {
             source.sendFailure(Component.literal(ChatColor.RED + "mobcap failed: " + e.getClass().getSimpleName() + ": " + e.getMessage()));
-            e.printStackTrace();
-            return 0;
-        }
-    }
-
-    private static int reload(CommandContext<CommandSourceStack> context) {
-        CommandSourceStack source = context.getSource();
-        try {
-            ArclightConfig.reload();
-            ((CraftServerBridge) Bukkit.getServer()).bridge$reloadSpawnSettings();
-            msg(source, ChatColor.GREEN + "Reloaded arclight.conf + bukkit.yml spawn-limits/ticks-per.");
-            return show(context);
-        } catch (Exception e) {
-            source.sendFailure(Component.literal(ChatColor.RED + "Mobcap reload failed: " + e.getMessage()));
             e.printStackTrace();
             return 0;
         }
