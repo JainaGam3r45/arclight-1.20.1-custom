@@ -21,6 +21,9 @@ public class ConfigSpec {
     @Setting("async-catcher")
     private AsyncCatcherSpec asyncCatcherSpec;
 
+    @Setting("proxies")
+    private ProxiesSpec proxiesSpec;
+
     public int getVersion() {
         return version;
     }
@@ -39,5 +42,9 @@ public class ConfigSpec {
 
     public AsyncCatcherSpec getAsyncCatcher() {
         return asyncCatcherSpec;
+    }
+
+    public ProxiesSpec getProxies() {
+        return proxiesSpec != null ? proxiesSpec : new ProxiesSpec();
     }
 }
