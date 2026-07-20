@@ -20,8 +20,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.StringJoiner;
 
 public class ArclightConfig {
@@ -243,6 +245,10 @@ public class ArclightConfig {
         return key;
     }
 
+    private static final Set<String> RESERVED_WORDS = Set.of(
+        "true", "false", "null", "yes", "no", "on", "off", "y", "n", "~"
+    );
+
     private static String formatScalar(Object value) {
         if (value == null) {
             return "null";
@@ -255,18 +261,35 @@ public class ArclightConfig {
             return "\"\"";
         }
         if (needsQuotes(text)) {
-            return "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+            return "\"" + text
+                .replace("\\", "\\\\")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
+                .replace("\"", "\\\"")
+                + "\"";
         }
         return text;
     }
 
     private static boolean needsQuotes(String text) {
-        if (text.startsWith("&") || text.contains(": ") || text.contains("#")
-            || text.contains("\n") || text.contains("'") || text.contains("\"")
-            || text.startsWith("{") || text.startsWith("[")
-            || text.equalsIgnoreCase("true") || text.equalsIgnoreCase("false")
-            || text.equalsIgnoreCase("null") || text.equalsIgnoreCase("yes")
-            || text.equalsIgnoreCase("no")) {
+        if (Character.isWhitespace(text.charAt(0)) || Character.isWhitespace(text.charAt(text.length() - 1))) {
+            return true;
+        }
+        char first = text.charAt(0);
+        if (first == '&' || first == '*' || first == '!' || first == '|' || first == '>'
+            || first == '%' || first == '`' || first == '@' || first == '{' || first == '[') {
+            return true;
+        }
+        if ((first == '-' || first == '?') && text.length() > 1 && text.charAt(1) == ' ') {
+            return true;
+        }
+        if (text.contains(": ") || text.contains("#") || text.contains("\n")
+            || text.contains("\r") || text.contains("\t")
+            || text.contains("'") || text.contains("\"")) {
+            return true;
+        }
+        if (RESERVED_WORDS.contains(text.toLowerCase(Locale.ROOT))) {
             return true;
         }
         try {
