@@ -37,8 +37,8 @@ optimization:
     max-ms-per-tick: 4.0
 
 compatibility:
-  material-property-overrides:
-  entity-property-overrides:
+  material-property-overrides: {}
+  entity-property-overrides: {}
   symlink-world: false
   extra-logic-worlds:
     - com.example.mod.ExtraLogicWorld
@@ -60,6 +60,6 @@ async-catcher:
   dump: true
   warn: true
   defaultOperation: block
-  overrides:
+  overrides: {}
   log-overrides:
     chunk entity get: DEBUG

@@ -30,6 +30,10 @@ public class ArclightConfig {
 
     private static final Path YAML_PATH = Paths.get("arclight.yml");
     private static final Path LEGACY_HOCON_PATH = Paths.get("arclight.conf");
+    private static final Set<String> EMPTY_MAP_KEYS = Set.of(
+        "overrides", "log-overrides",
+        "material-property-overrides", "entity-property-overrides"
+    );
 
     private static ArclightConfig instance;
 
@@ -185,6 +189,15 @@ public class ArclightConfig {
         writeComment(out, pathOf(node), locale, indent);
         indent(out, indent);
         out.append(escapeKey(key)).append(':');
+        if (node.getValueType() == ValueType.MAP) {
+            if (node.getChildrenMap().isEmpty()) {
+                out.append(" {}\n");
+                return;
+            }
+            out.append('\n');
+            writeMapChildren(out, node, locale, indent + 1);
+            return;
+        }
         if (node.hasMapChildren()) {
             out.append('\n');
             writeMapChildren(out, node, locale, indent + 1);
@@ -212,7 +225,7 @@ public class ArclightConfig {
         }
         Object value = node.getValue();
         if (value == null) {
-            out.append('\n');
+            out.append(EMPTY_MAP_KEYS.contains(key) ? " {}\n" : "\n");
         } else {
             out.append(' ').append(formatScalar(value)).append('\n');
         }

@@ -3,6 +3,7 @@ package io.izzel.arclight.i18n.conf;
 import ninja.leaping.configurate.objectmapping.Setting;
 import ninja.leaping.configurate.objectmapping.serialize.ConfigSerializable;
 
+import java.util.Collections;
 import java.util.Map;
 
 @ConfigSerializable
@@ -36,11 +37,11 @@ public class AsyncCatcherSpec {
     }
 
     public Map<String, Operation> getOverrides() {
-        return overrides;
+        return overrides == null ? Collections.emptyMap() : overrides;
     }
 
     public Map<String, LogLevel> getLogOverrides() {
-        return logOverrides;
+        return logOverrides == null ? Collections.emptyMap() : logOverrides;
     }
 
     public enum Operation {

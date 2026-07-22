@@ -3,6 +3,7 @@ package io.izzel.arclight.i18n.conf;
 import ninja.leaping.configurate.objectmapping.Setting;
 import ninja.leaping.configurate.objectmapping.serialize.ConfigSerializable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -39,19 +40,19 @@ public class CompatSpec {
     private boolean isolateAdventureFromModloader;
 
     public Map<String, MaterialPropertySpec> getMaterials() {
-        return materials;
+        return materials == null ? Collections.emptyMap() : materials;
     }
 
     public Optional<MaterialPropertySpec> getMaterial(String key) {
-        return Optional.ofNullable(materials.get(key));
+        return Optional.ofNullable(getMaterials().get(key));
     }
 
     public Map<String, EntityPropertySpec> getEntities() {
-        return entities;
+        return entities == null ? Collections.emptyMap() : entities;
     }
 
     public Optional<EntityPropertySpec> getEntity(String key) {
-        return Optional.ofNullable(entities.get(key));
+        return Optional.ofNullable(getEntities().get(key));
     }
 
     public boolean isSymlinkWorld() {
@@ -59,7 +60,7 @@ public class CompatSpec {
     }
 
     public List<String> getExtraLogicWorlds() {
-        return extraLogicWorlds;
+        return extraLogicWorlds == null ? Collections.emptyList() : extraLogicWorlds;
     }
 
     public boolean isForwardPermission() {
@@ -79,7 +80,9 @@ public class CompatSpec {
     }
 
     public boolean isIsolatedPluginClassLoaders(String name) {
-        for (String prefix : isolatePluginClassLoaders) {
+        List<String> prefixes = isolatePluginClassLoaders == null
+            ? Collections.emptyList() : isolatePluginClassLoaders;
+        for (String prefix : prefixes) {
             if (name.startsWith(prefix)) {
                 return true;
             }
